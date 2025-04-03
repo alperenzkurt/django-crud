@@ -1,0 +1,51 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Env dosyaları
+.env
+*.env
+
+# Virtual environment
+venv/
+ENV/
+env/
+.venv/
+
+# Django DB & media
+db.sqlite3
+media/
+
+# VSCode ve IDE dosyaları
+.vscode/
+.idea/
+
+# Migrations (opsiyonel: bazı ekiplerde tutulur)
+**/migrations/*.py
+!**/migrations/__init__.py
+
+# Static files
+staticfiles/
+static/
+
+# Byte-compiled, log, dump files
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# macOS / Windows çöp dosyaları
+.DS_Store
+Thumbs.db
+
+# Docker
+*.pid
+*.tar
+*.db
+*.gz
+*.tgz
+*.log
+*.sock

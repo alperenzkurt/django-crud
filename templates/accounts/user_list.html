@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block title %}Kullanıcı Listesi{% endblock %}
+
+{% block extra_js %}
+    {% load static %}
+    <script src="{% static 'js/accounts.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+    <div class="container mt-5">
+        <h3>Kullanıcılar</h3>
+        <a href="{% url 'create_user' %}" class="btn btn-success mb-3" id="add-user-btn">➕ Yeni Kullanıcı Ekle</a>
+        <div id="modal-container"></div>
+        <div id="alert-container"></div>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Kullanıcı Adı</th>
+                    <th>İsim</th>
+                    <th>Email</th>
+                    <th>Takım</th>
+                    <th>İşlem</th>
+                </tr>
+            </thead>
+            <tbody id="users-table-body">
+                {% for user in users %}
+                    <tr data-user-id="{{ user.id }}">
+                        <td>{{ user.username }}</td>
+                        <td>{{ user.get_full_name }}</td>
+                        <td>{{ user.email }}</td>
+                        <td>
+                            {% if user.team %}
+                                {{ user.team.name }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-warning btn-sm edit-user-btn" data-user-id="{{ user.id }}">✏️</button>
+                            <button class="btn btn-danger btn-sm delete-user-btn" data-user-id="{{ user.id }}">🗑️</button>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5">Hiç kullanıcı yok.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal for forms -->
+    <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="userModalLabel">User Form</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="userModalBody">
+                    <!-- Form will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="deleteConfirmModalLabel">Kullanıcı Silme Onayı</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Bu kullanıcıyı silmek istediğinize emin misiniz?</p>
+                    <p><strong>Kullanıcı:</strong> <span id="deleteUserName"></span></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Sil</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+

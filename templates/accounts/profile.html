@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Profil Bilgileri{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow p-4">
+        <h3 class="mb-4">👤 Profil Bilgileri</h3>
+        <ul class="list-group">
+            <li class="list-group-item"><strong>Kullanıcı Adı:</strong> {{ user.username }}</li>
+            <li class="list-group-item"><strong>Ad Soyad:</strong> {{ user.get_full_name }}</li>
+            <li class="list-group-item"><strong>Email:</strong> {{ user.email|default:"Belirtilmemiş" }}</li>
+            <li class="list-group-item">
+                <strong>Takım:</strong>
+                {% if user.team %}
+                    {{ user.team.name }}
+                {% else %}
+                    Takım atanmamış
+                {% endif %}
+            </li>
+        </ul>
+        <a href="{% url 'edit_profile' %}" class="btn btn-outline-primary mt-3">✏️ Profili Düzenle</a>
+    </div>
+</div>
+{% endblock %}
