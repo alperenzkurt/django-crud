@@ -6,11 +6,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 from django.contrib import messages
-from .forms import ProfileUpdateForm, AdminUserCreateForm, AdminUserUpdateForm
+from .forms import ProfileUpdateForm, AdminUserCreateForm, AdminUserUpdateForm, AdminPasswordChangeForm
 from django.contrib.auth import get_user_model
 from .decorators import admin_required
 from django.http import JsonResponse
 from django.template.loader import render_to_string
+from .models import Team
 
 User = get_user_model()
 
@@ -57,21 +58,24 @@ def edit_profile(request):
 @admin_required
 def user_list(request):
     users = User.objects.all()
+    teams = Team.objects.all()
     
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         data = []
         for user in users:
             team_name = user.team.name if user.team else '-'
+            team_id = user.team.id if user.team else None
             data.append({
                 'id': user.id,
                 'username': user.username,
                 'full_name': user.get_full_name(),
                 'email': user.email,
-                'team': team_name
+                'team': team_name,
+                'team_id': team_id
             })
         return JsonResponse({'users': data})
     
-    return render(request, 'accounts/user_list.html', {'users': users})
+    return render(request, 'accounts/user_list.html', {'users': users, 'teams': teams})
 
 @admin_required
 def create_user(request):
@@ -104,6 +108,18 @@ def create_user(request):
 @admin_required
 def edit_user(request, user_id):
     user = get_object_or_404(User, id=user_id)
+    
+    # Handle quick team assignment
+    if request.method == 'POST' and 'team' in request.POST and not request.POST.get('username'):
+        team_id = request.POST.get('team')
+        if team_id:
+            user.team = get_object_or_404(Team, id=team_id)
+        else:
+            user.team = None
+        user.save()
+        return JsonResponse({'success': True, 'message': 'Takım başarıyla atandı.'})
+    
+    # Handle full form submission
     form = AdminUserUpdateForm(request.POST or None, instance=user)
     
     if request.method == 'POST' and form.is_valid():
@@ -135,3 +151,58 @@ def delete_user(request, user_id):
         return JsonResponse({'success': True, 'message': 'Kullanıcı başarıyla silindi.'})
     
     return redirect('user_list')
+
+@admin_required
+def change_password(request, user_id):
+    user = get_object_or_404(User, id=user_id)
+    
+    if request.method == 'POST':
+        form = AdminPasswordChangeForm(user, request.POST)
+        if form.is_valid():
+            form.save()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': 'Şifre başarıyla değiştirildi.'})
+            return redirect('user_list')
+        else:
+            # Form has errors
+            context = {
+                'form': form,
+                'user': user,
+                'is_ajax': request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            }
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                html = render_to_string('accounts/password_change_form.html', context, request=request)
+                return JsonResponse({'success': False, 'html': html})
+    else:
+        form = AdminPasswordChangeForm(user)
+    
+    context = {
+        'form': form,
+        'user': user,
+        'is_ajax': request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    }
+    
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        html = render_to_string('accounts/password_change_form.html', context, request=request)
+        return JsonResponse({'html': html})
+    
+    return render(request, 'accounts/password_change_form.html', context)
+
+@login_required
+def team_viewer(request):
+    """View all teams and their members"""
+    teams = Team.objects.all()
+    
+    # Prepare team data with member counts
+    team_data = []
+    for team in teams:
+        members = User.objects.filter(team=team)
+        team_data.append({
+            'team': team,
+            'members': members,
+            'members_count': members.count()
+        })
+    
+    return render(request, 'accounts/team_viewer.html', {
+        'team_data': team_data
+    })

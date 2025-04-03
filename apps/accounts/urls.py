@@ -1,7 +1,8 @@
 from django.urls import path, include
 from .views import login_page, logout_view, profile_view, edit_profile
 from .views import (
-    user_list, create_user, edit_user, delete_user
+    user_list, create_user, edit_user, delete_user, change_password,
+    team_viewer
 )
 
 urlpatterns = [
@@ -16,4 +17,9 @@ urlpatterns += [
     path('admin/users/create/', create_user, name='create_user'),
     path('admin/users/<int:user_id>/edit/', edit_user, name='edit_user'),
     path('admin/users/<int:user_id>/delete/', delete_user, name='delete_user'),
+    path('admin/users/<int:user_id>/change-password/', change_password, name='change_password'),
+]
+
+urlpatterns += [
+    path('teams/', team_viewer, name='team_viewer'),
 ]

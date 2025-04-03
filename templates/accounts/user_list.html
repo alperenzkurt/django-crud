@@ -37,8 +37,11 @@
                             {% endif %}
                         </td>
                         <td>
-                            <button class="btn btn-warning btn-sm edit-user-btn" data-user-id="{{ user.id }}">✏️</button>
-                            <button class="btn btn-danger btn-sm delete-user-btn" data-user-id="{{ user.id }}">🗑️</button>
+                            <div class="btn-group">
+                                <button class="btn btn-warning btn-sm edit-user-btn" data-user-id="{{ user.id }}" title="Düzenle">✏️</button>
+                                <button class="btn btn-info btn-sm change-password-btn" data-user-id="{{ user.id }}" data-username="{{ user.username }}" title="Şifre Değiştir">🔑</button>
+                                <button class="btn btn-danger btn-sm delete-user-btn" data-user-id="{{ user.id }}" title="Sil">🗑️</button>
+                            </div>
                         </td>
                     </tr>
                 {% empty %}
@@ -63,6 +66,21 @@
         </div>
     </div>
     
+    <!-- Password Change Modal -->
+    <div class="modal fade" id="passwordChangeModal" tabindex="-1" aria-labelledby="passwordChangeModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="passwordChangeModalLabel">Şifre Değiştir</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="passwordChangeModalBody">
+                    <!-- Password change form will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Delete Confirmation Modal -->
     <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -82,5 +100,69 @@
             </div>
         </div>
     </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Password change button click handler
+        $('.change-password-btn').click(function() {
+            const userId = $(this).data('user-id');
+            const username = $(this).data('username');
+            
+            // Load the password change form
+            $.ajax({
+                url: "{% url 'change_password' 0 %}".replace('0', userId),
+                success: function(response) {
+                    $('#passwordChangeModalLabel').text(username + ' - Şifre Değiştir');
+                    $('#passwordChangeModalBody').html(response.html);
+                    $('#passwordChangeModal').modal('show');
+                    
+                    // Attach form submission handler
+                    setupPasswordFormHandler();
+                },
+                error: function(xhr, status, error) {
+                    console.error("AJAX Error: ", status, error);
+                    toastr.error('Form yüklenirken bir hata oluştu.');
+                }
+            });
+        });
+        
+        // Function to set up the password form submission handler
+        function setupPasswordFormHandler() {
+            // Remove any existing handlers first to prevent duplicates
+            $('#passwordChangeForm').off('submit');
+            
+            // Attach new handler
+            $('#passwordChangeForm').on('submit', function(e) {
+                e.preventDefault();
+                
+                const form = $(this);
+                const formData = form.serialize();
+                const formUrl = form.attr('action');
+                
+                $.ajax({
+                    url: formUrl,
+                    type: 'POST',
+                    data: formData,
+                    success: function(response) {
+                        if (response.success) {
+                            toastr.success(response.message);
+                            $('#passwordChangeModal').modal('hide');
+                        } else {
+                            // Show form errors and reattach handler
+                            $('#passwordChangeModalBody').html(response.html);
+                            setupPasswordFormHandler(); // Re-setup handler after HTML update
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error("Form submission error:", status, error);
+                        toastr.error('Şifre değiştirme işlemi sırasında bir hata oluştu.');
+                    }
+                });
+            });
+        }
+    });
+</script>
 {% endblock %}
 
