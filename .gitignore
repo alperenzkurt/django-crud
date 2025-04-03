@@ -26,8 +26,8 @@ media/
 !**/migrations/__init__.py
 
 # Static files
-staticfiles/
-static/
+#staticfiles/
+#static/
 
 # Byte-compiled, log, dump files
 *.log
