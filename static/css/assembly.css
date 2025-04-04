@@ -1,0 +1,323 @@
+/* Aircraft Assembly Interface Styles */
+
+.aircraft-container {
+    width: 100%;
+    max-width: 800px;
+    margin: 20px auto;
+    position: relative;
+    min-height: 500px;
+    border: 2px dashed #ccc;
+    border-radius: 10px;
+    color: #000000 !important;
+    background-color: #f8f9fa !important;
+    padding: 20px;
+}
+
+.aircraft-skeleton {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    min-height: 300px;
+}
+
+/* Aircraft Parts */
+.aircraft-part {
+    position: absolute;
+    border: 2px dashed #999;
+    background-color: rgba(200, 200, 200, 0.3);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #666;
+    text-align: center;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.aircraft-part.filled {
+    border: 2px solid #28a745;
+    background-color: rgba(40, 167, 69, 0.2);
+    color: #28a745;
+    cursor: pointer;
+    position: absolute;
+}
+
+.aircraft-part.filled:hover {
+    background-color: rgba(220, 53, 69, 0.2);
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.aircraft-part.filled:hover::after {
+    content: "Çıkarmak için tıklayın";
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 100;
+}
+
+/* Part positions */
+.part-body {
+    width: 80%;
+    height: 60px;
+    top: 120px;
+    left: 10%;
+}
+
+.part-wing {
+    width: 20%;
+    height: 200px;
+    top: 50px;
+    left: 40%;
+}
+
+.part-tail {
+    width: 20%;
+    height: 80px;
+    top: 110px;
+    left: 70%;
+}
+
+.part-avionics {
+    width: 20%;
+    height: 40px;
+    top: 80px;
+    left: 40%;
+    z-index: 10;
+}
+
+/* Parts selection panel */
+.parts-panel {
+    margin-top: 30px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 15px;
+    background-color: #fff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.part-type-section {
+    margin-bottom: 20px;
+}
+
+.part-type-section h5 {
+    color: #495057;
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+}
+
+.part-type-container {
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.part-card {
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: #f8f9fa;
+}
+
+.part-card:hover {
+    background-color: #f0f0f0;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.part-card.selected {
+    border-color: #007bff;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+/* Assembly action buttons */
+.assembly-actions {
+    margin-top: 20px;
+    text-align: center;
+}
+
+/* Specific styling for the complete assembly button */
+#complete-assembly-btn {
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+#complete-assembly-btn:disabled {
+    opacity: 0.5;
+    background-color: #6c757d;
+    border-color: #6c757d;
+    cursor: not-allowed;
+    position: relative;
+}
+
+#complete-assembly-btn:disabled::after {
+    content: "Eksik parçaları tamamlayın";
+    position: absolute;
+    bottom: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 100;
+}
+
+/* Aircraft type badges */
+.aircraft-type-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    margin-right: 5px;
+    font-weight: bold;
+}
+
+.aircraft-type-TB2 {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+.aircraft-type-TB3 {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.aircraft-type-AKINCI {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.aircraft-type-KIZILELMA {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Status indicators */
+.assembly-status {
+    padding: 10px;
+    border-radius: 5px;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.status-in_progress {
+    background-color: #cce5ff;
+    color: #004085;
+}
+
+.status-completed {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-cancelled {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .aircraft-skeleton {
+        height: 250px;
+    }
+    
+    .part-wing {
+        height: 40px;
+        top: 100px;
+    }
+    
+    .part-body {
+        height: 150px;
+    }
+    
+    .part-tail {
+        height: 60px;
+    }
+    
+    .part-avionics {
+        height: 30px;
+    }
+}
+
+.part-body {
+    justify-content: flex-start !important;
+    padding-left: 40px;
+    text-align: left;
+}
+
+/* Aircraft type specific styling - Maintain strict positioning */
+
+/* TB2 Positions */
+.aircraft-type-TB2 .aircraft-skeleton .part-body {
+    width: 80%;
+    height: 60px;
+    top: 120px;
+    left: 10%;
+}
+
+.aircraft-type-TB2 .aircraft-skeleton .part-wing {
+    width: 20%;
+    height: 200px;
+    top: 50px;
+    left: 40%;
+}
+
+.aircraft-type-TB2 .aircraft-skeleton .part-tail {
+    width: 20%;
+    height: 80px;
+    top: 110px;
+    left: 70%;
+}
+
+.aircraft-type-TB2 .aircraft-skeleton .part-avionics {
+    width: 20%;
+    height: 40px;
+    top: 80px;
+    left: 40%;
+    z-index: 10;
+}
+
+/* AKINCI Positions */
+.aircraft-type-AKINCI .aircraft-skeleton .part-body {
+    width: 80%;
+    height: 60px;
+    top: 120px;
+    left: 10%;
+}
+
+.aircraft-type-AKINCI .aircraft-skeleton .part-wing {
+    width: 20%;
+    height: 200px;
+    top: 50px;
+    left: 40%;
+}
+
+.aircraft-type-AKINCI .aircraft-skeleton .part-tail {
+    width: 20%;
+    height: 80px;
+    top: 110px;
+    left: 70%;
+}
+
+.aircraft-type-AKINCI .aircraft-skeleton .part-avionics {
+    width: 20%;
+    height: 40px;
+    top: 80px;
+    left: 40%;
+    z-index: 10;
+}

@@ -74,7 +74,10 @@ const ajax = {
     }
 };
 
-// Helper function to get CSRF token from cookies
+/**
+ * Utility function to get CSRF token from cookies
+ * Required for AJAX POST, PUT, DELETE requests
+ */
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -88,4 +91,68 @@ function getCookie(name) {
         }
     }
     return cookieValue;
+}
+
+/**
+ * Format date and time
+ * @param {string} dateString - ISO date string
+ * @param {string} locale - Locale for formatting (default: 'tr-TR')
+ * @returns {string} Formatted date and time
+ */
+function formatDateTime(dateString, locale = 'tr-TR') {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleString(locale);
+}
+
+/**
+ * Handle AJAX errors and display appropriate messages
+ * @param {object} xhr - XMLHttpRequest object
+ */
+function handleAjaxError(xhr) {
+    console.error('AJAX Error:', xhr);
+    
+    // Get error message
+    let errorMsg = 'Bir hata oluştu!';
+    
+    if (xhr.responseJSON) {
+        if (xhr.responseJSON.detail) {
+            errorMsg = xhr.responseJSON.detail;
+        } else if (xhr.responseJSON.non_field_errors) {
+            errorMsg = xhr.responseJSON.non_field_errors.join(', ');
+        } else {
+            // Try to get first error message
+            const firstErrorKey = Object.keys(xhr.responseJSON)[0];
+            if (firstErrorKey && xhr.responseJSON[firstErrorKey]) {
+                errorMsg = `${firstErrorKey}: ${xhr.responseJSON[firstErrorKey]}`;
+            }
+        }
+    }
+    
+    // Display error message
+    if (typeof toastr !== 'undefined') {
+        toastr.error(errorMsg);
+    } else {
+        alert(`Hata: ${errorMsg}`);
+    }
+}
+
+/**
+ * Check if a user has a team and required permissions
+ * @param {string} teamType - Required team type (optional)
+ * @returns {boolean} Whether user has required permissions
+ */
+function hasTeamPermission(teamType = null) {
+    // This assumes team type is set in a global variable or data attribute
+    const userTeamType = document.querySelector('body').dataset.teamType || '';
+    
+    if (!userTeamType) {
+        return false;
+    }
+    
+    if (teamType && userTeamType !== teamType) {
+        return false;
+    }
+    
+    return true;
 } 

@@ -18,7 +18,21 @@ User = get_user_model()
 # Create your views here.
 @login_required
 def home(request):
-    return render(request, 'home.html')
+    # Get user's last login time
+    last_login = request.user.last_login
+    
+    # Get production statistics
+    from apps.assembly.models import AssemblyProcess
+    completed_count = AssemblyProcess.objects.filter(status='completed').count()
+    in_progress_count = AssemblyProcess.objects.filter(status='in_progress').count()
+    
+    context = {
+        'last_login': last_login,
+        'completed_count': completed_count,
+        'in_progress_count': in_progress_count,
+    }
+    
+    return render(request, 'home.html', context)
 
 def login_page(request):
     error = None

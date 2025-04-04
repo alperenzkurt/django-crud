@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+
+{% block title %}Montaj: {{ assembly.aircraft_type_display }} #{{ assembly.id }}{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<link href="{% static 'css/assembly.css' %}" rel="stylesheet">
+<script src="{% static 'js/assembly.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'assembly_list' %}">Montaj İşlemleri</a></li>
+                    <li class="breadcrumb-item active">{{ assembly.aircraft_type_display }} #{{ assembly.id }}</li>
+                </ol>
+            </nav>
+            
+            <div class="d-flex justify-content-between align-items-center">
+                <h1>{{ assembly.aircraft_type_display }} Montajı #{{ assembly.id }}</h1>
+                <div>
+                    <span class="badge {% if assembly.status == 'in_progress' %}bg-info{% elif assembly.status == 'completed' %}bg-success{% else %}bg-danger{% endif %} fs-6">
+                        {{ assembly.get_status_display }}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p id="baslatanRow"><strong>Başlatan:</strong> <span>{{ assembly.started_by.username }}</span></p>
+                            <p id="baslamaTarihiRow"><strong>Başlama Tarihi:</strong> <span>{{ assembly.start_date }}</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p id="sonGuncelleyenRow"><strong>Son Güncelleyen:</strong> <span>{% if assembly.completed_by %}{{ assembly.completed_by.username }}{% else %}Henüz güncellenmedi{% endif %}</span></p>
+                            <p id="sonGuncellemeTarihiRow"><strong>Son Güncelleme Tarihi:</strong> <span>{% if assembly.completion_date %}{{ assembly.completion_date }}{% else %}Henüz güncellenmedi{% endif %}</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Assembly Status -->
+            <div id="assembly-status" class="assembly-status status-{{ assembly.status }}">
+                Durum: {{ assembly.get_status_display }}
+            </div>
+            
+            <!-- Warnings -->
+            <div id="missing-parts-warning" class="alert alert-warning {% if not assembly.missing_parts %}d-none{% endif %}">
+                <strong>Uyarı:</strong> Montaj tamamlanamıyor! Eksik parçalar: 
+                <span id="missing-parts-list">
+                    {% for part_type in assembly.missing_parts %}
+                        {% if part_type == 'wing' %}Kanat{% elif part_type == 'body' %}Gövde{% elif part_type == 'tail' %}Kuyruk{% elif part_type == 'avionics' %}Aviyonik{% endif %}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </span>
+            </div>
+            
+            <div id="inventory-warning" class="alert alert-danger d-none">
+                <strong>Envanter Uyarısı:</strong> Bu uçak tipi için envanterde eksik parçalar var: 
+                <span id="inventory-missing-parts"></span>
+            </div>
+            
+            <!-- Completed Message -->
+            <div id="aircraft-completed-message" class="alert alert-success {% if assembly.status != 'completed' %}d-none{% endif %}">
+                <strong>Tebrikler!</strong> Bu montaj tamamlandı ve <strong>#<span id="completed-aircraft-id">{{ assembly.aircraft.id }}</span></strong> ID'li uçak envantere eklendi.
+            </div>
+            
+            <!-- Aircraft Skeleton -->
+            <div id="assembly-container" class="aircraft-container aircraft-type-{{ assembly.aircraft_type }}" data-assembly-id="{{ assembly.id }}" data-aircraft-type="{{ assembly.aircraft_type }}">
+                <h4 class="text-center mb-3">{{ assembly.aircraft_type_display }} İskelet</h4>
+                
+                <div class="aircraft-skeleton">
+                    <!-- Body Part -->
+                    <div class="aircraft-part part-body" data-part-type="body">
+                        {% for part in assembly.assigned_parts %}
+                            {% if part.part.part_type == 'body' %}
+                                <span class="filled">{{ part.part.part_type_display }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Wing Part -->
+                    <div class="aircraft-part part-wing" data-part-type="wing">
+                        {% for part in assembly.assigned_parts %}
+                            {% if part.part.part_type == 'wing' %}
+                                <span class="filled">{{ part.part.part_type_display }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Tail Part -->
+                    <div class="aircraft-part part-tail" data-part-type="tail">
+                        {% for part in assembly.assigned_parts %}
+                            {% if part.part.part_type == 'tail' %}
+                                <span class="filled">{{ part.part.part_type_display }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Avionics Part -->
+                    <div class="aircraft-part part-avionics" data-part-type="avionics">
+                        {% for part in assembly.assigned_parts %}
+                            {% if part.part.part_type == 'avionics' %}
+                                <span class="filled">{{ part.part.part_type_display }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Assembly Actions -->
+                <div class="assembly-actions assembly-in-progress-actions {% if assembly.status != 'in_progress' %}d-none{% endif %}">
+                    <button id="add-part-btn" class="btn btn-success">Seçili Parçayı Ekle</button>
+                    <button id="complete-assembly-btn" class="btn btn-primary" {% if assembly.missing_parts %}disabled{% endif %}>Montajı Tamamla</button>
+                    <button id="cancel-assembly-btn" class="btn btn-danger">İptal Et</button>
+                </div>
+            </div>
+            
+            <!-- Assembly Log -->
+            <div class="card mt-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Montaj İşlem Kayıtları</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for log in assembly.logs %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <strong>{{ log.action_display }}</strong>
+                                <small class="text-muted">{{ log.timestamp }}</small>
+                            </div>
+                            {% if log.part %}
+                            <div>Parça: {{ log.part.part_type_display }} (#{{ log.part.id }})</div>
+                            {% endif %}
+                            {% if log.notes %}
+                            <div class="text-muted mt-1">{{ log.notes }}</div>
+                            {% endif %}
+                            <small>İşlemi Yapan: {{ log.action_by.username }}</small>
+                        </div>
+                        {% empty %}
+                        <div class="list-group-item text-center">Henüz işlem kaydı yok.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Available Parts Panel -->
+            <div class="parts-panel">
+                <h5 class="mb-3">Kullanılabilir Parçalar</h5>
+                <div id="parts-panel">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Yükleniyor...</span>
+                        </div>
+                        <p>Parçalar yükleniyor...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

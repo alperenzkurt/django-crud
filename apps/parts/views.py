@@ -1,18 +1,27 @@
 from django.shortcuts import render
 
 #custom
-from rest_framework import viewsets, status
-from .models import Part
+from rest_framework import viewsets, status, filters
+from .models import Part, PART_TYPES
 from .serializers import PartSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q
+from django_filters.rest_framework import DjangoFilterBackend
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from .permissions import CanManagePart
 
 # Create your views here.
 class PartViewSet(viewsets.ModelViewSet):
     serializer_class = PartSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanManagePart]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['part_type', 'aircraft_type', 'is_recycled']
+    search_fields = ['id', 'team__name', 'creator__username']
+    ordering_fields = ['created_at', 'part_type', 'aircraft_type']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         """
@@ -38,10 +47,10 @@ class PartViewSet(viewsets.ModelViewSet):
         
         # Check if team can produce this part type
         if not user.team.can_produce_part(part_type):
-            raise PermissionDenied(f"Bu takım {dict(Part.PART_TYPES).get(part_type)} üretemez.")
+            raise PermissionDenied(f"Bu takım {dict(PART_TYPES).get(part_type)} üretemez.")
             
-        # Set the team automatically based on the user's team
-        serializer.save(team=user.team)
+        # Set the team and creator automatically based on the user
+        serializer.save(team=user.team, creator=user)
         
     def perform_update(self, serializer):
         """Prevent changing part's type to one the team can't produce"""
@@ -54,20 +63,29 @@ class PartViewSet(viewsets.ModelViewSet):
             
         part_type = self.request.data.get('part_type')
         if part_type and part_type != part.part_type and not user.team.can_produce_part(part_type):
-            raise PermissionDenied(f"Bu takım {dict(Part.PART_TYPES).get(part_type)} üretemez.")
+            raise PermissionDenied(f"Bu takım {dict(PART_TYPES).get(part_type)} üretemez.")
             
         serializer.save()
         
     def perform_destroy(self, instance):
-        """Only allow teams to recycle their own parts"""
+        """Override to implement recycling instead of real deletion and check permissions"""
         user = self.request.user
         
-        # Only the team that created the part can delete/recycle it
+        # Only allow users from the same team as the part to recycle it
         if instance.team != user.team and user.team.team_type != 'assembly':
             raise PermissionDenied("Sadece parçayı üreten takım geri dönüşüme gönderebilir.")
             
-        # If already used in an aircraft, can't be recycled
+        # If part is in use (either in aircraft or assembly), it can't be recycled
         if instance.used_in_aircraft:
             raise PermissionDenied("Uçakta kullanılan parçalar geri dönüşüme gönderilemez.")
+        
+        # Check if part is in an assembly
+        if instance.is_in_assembly:
+            raise PermissionDenied("Montajda kullanılan parçalar geri dönüşüme gönderilemez.")
             
         instance.delete()
+
+@login_required
+def part_management(request):
+    """View for part management page"""
+    return render(request, 'parts/part_management.html')

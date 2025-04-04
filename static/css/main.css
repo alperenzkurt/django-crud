@@ -108,4 +108,85 @@ body {
         height: auto;
         position: relative;
     }
+}
+
+/* General styling */
+body {
+    background-color: #f8f9fa;
+}
+
+.content {
+    padding: 20px;
+}
+
+/* Sidebar styling */
+.offcanvas-body .list-group-item a {
+    text-decoration: none;
+    color: #333;
+    display: block;
+}
+
+.offcanvas-body .list-group-item a:hover {
+    color: #0d6efd;
+}
+
+/* Table styling */
+.table-responsive {
+    overflow-x: auto;
+}
+
+table.dataTable thead th {
+    background-color: #f1f1f1;
+    font-weight: 600;
+}
+
+/* Cards */
+.card {
+    margin-bottom: 20px;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    font-weight: 500;
+}
+
+/* Badges */
+.badge.bg-primary {
+    background-color: #0d6efd !important;
+}
+
+.badge.bg-success {
+    background-color: #198754 !important;
+}
+
+/* Form elements */
+.form-select:focus, .form-control:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Loading indicator for DataTables */
+.dataTables_processing {
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    
+    .card-header {
+        display: block !important;
+    }
+    
+    .card-header button {
+        margin-top: 10px;
+        width: 100%;
+    }
 } 

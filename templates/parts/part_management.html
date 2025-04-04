@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Parça Yönetimi{% endblock %}
+
+{% block extra_js %}
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Parça Yönetimi</h1>
+            <p>Takımınızın ürettiği parçaları burada yönetebilirsiniz.</p>
+        </div>
+    </div>
+    
+    <div class="row mb-3">
+        <div class="col">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Parçalar</h5>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createPartModal">
+                        Yeni Parça Ekle
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="partsTable" class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Parça Tipi</th>
+                                    <th>Uçak Tipi</th>
+                                    <th>Oluşturan</th>
+                                    <th>Oluşturma Tarihi</th>
+                                    <th>Durum</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data will be loaded with AJAX -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Part Modal -->
+<div class="modal fade" id="createPartModal" tabindex="-1" aria-labelledby="createPartModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createPartModalLabel">Yeni Parça Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createPartForm">
+                    <div class="mb-3">
+                        <label for="part_type" class="form-label">Parça Tipi</label>
+                        <select class="form-select" id="part_type" name="part_type" required>
+                            <!-- Options will be populated based on user's team -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="aircraft_type" class="form-label">Uçak Tipi</label>
+                        <select class="form-select" id="aircraft_type" name="aircraft_type" required>
+                            <option value="TB2">TB2</option>
+                            <option value="TB3">TB3</option>
+                            <option value="AKINCI">AKINCI</option>
+                            <option value="KIZILELMA">KIZILELMA</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" id="savePartBtn">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Part Modal -->
+<div class="modal fade" id="deletePartModal" tabindex="-1" aria-labelledby="deletePartModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deletePartModalLabel">Parçayı Geri Dönüşüme Gönder</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Bu parçayı geri dönüşüme göndermek istediğinize emin misiniz?</p>
+                <p>Bu işlem geri alınamaz.</p>
+                <input type="hidden" id="deletePartId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Geri Dönüşüme Gönder</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Get user team type
+        const userTeamType = "{{ request.user.team.team_type }}";
+        
+        // Populate part type select based on user's team
+        const partTypeSelect = $('#part_type');
+        if (userTeamType === 'wing') {
+            partTypeSelect.append('<option value="wing">Kanat</option>');
+        } else if (userTeamType === 'body') {
+            partTypeSelect.append('<option value="body">Gövde</option>');
+        } else if (userTeamType === 'tail') {
+            partTypeSelect.append('<option value="tail">Kuyruk</option>');
+        } else if (userTeamType === 'avionics') {
+            partTypeSelect.append('<option value="avionics">Aviyonik</option>');
+        } else {
+            // Assembly team or other - can't create parts
+            $('#createPartModal').modal('hide');
+            $('.btn[data-bs-target="#createPartModal"]').hide();
+        }
+
+        // Initialize DataTable with AJAX source
+        const table = $('#partsTable').DataTable({
+            processing: true,
+            serverSide: false, // Set to true for server-side processing
+            ajax: {
+                url: '/parts/api/parts/',
+                dataSrc: ''
+            },
+            columns: [
+                { data: 'id' },
+                { data: 'part_type_display' },
+                { data: 'aircraft_type_display' },
+                { data: 'creator_name' },
+                { 
+                    data: 'created_at',
+                    render: function(data) {
+                        const date = new Date(data);
+                        return date.toLocaleString('tr-TR');
+                    }
+                },
+                { 
+                    data: 'used_in_aircraft',
+                    render: function(data, type, row) {
+                        if (row.used_in_aircraft) {
+                            return '<span class="badge bg-success">Uçakta Kullanıldı</span>';
+                        } else if (row.is_in_use) {
+                            return '<span class="badge bg-warning">Montajda Kullanılıyor</span>';
+                        } else {
+                            return '<span class="badge bg-primary">Kullanılabilir</span>';
+                        }
+                    }
+                },
+                {
+                    data: null,
+                    render: function(data, type, row) {
+                        if (row.is_in_use) {
+                            return '<button class="btn btn-sm btn-outline-secondary" disabled>Kullanımda</button>';
+                        } else {
+                            return '<button class="btn btn-sm btn-danger delete-part" data-id="' + row.id + '">Geri Dönüşüm</button>';
+                        }
+                    }
+                }
+            ],
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.11.5/i18n/tr.json'
+            }
+        });
+
+        // Create part
+        $('#savePartBtn').click(function() {
+            const formData = {
+                part_type: $('#part_type').val(),
+                aircraft_type: $('#aircraft_type').val(),
+            };
+
+            $.ajax({
+                url: '/parts/api/parts/',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(formData),
+                success: function(response) {
+                    $('#createPartModal').modal('hide');
+                    table.ajax.reload();
+                    toastr.success('Parça başarıyla oluşturuldu!');
+                },
+                error: function(xhr) {
+                    const errorMsg = xhr.responseJSON?.detail || 'Bir hata oluştu!';
+                    toastr.error(errorMsg);
+                }
+            });
+        });
+
+        // Delete part (prepare modal)
+        $('#partsTable').on('click', '.delete-part', function() {
+            const partId = $(this).data('id');
+            $('#deletePartId').val(partId);
+            $('#deletePartModal').modal('show');
+        });
+
+        // Confirm delete
+        $('#confirmDeleteBtn').click(function() {
+            const partId = $('#deletePartId').val();
+            
+            $.ajax({
+                url: '/parts/api/parts/' + partId + '/',
+                type: 'DELETE',
+                success: function() {
+                    $('#deletePartModal').modal('hide');
+                    table.ajax.reload();
+                    toastr.success('Parça geri dönüşüme gönderildi!');
+                },
+                error: function(xhr) {
+                    const errorMsg = xhr.responseJSON?.detail || 'Bir hata oluştu!';
+                    toastr.error(errorMsg);
+                }
+            });
+        });
+
+        // Modal hide events - reset forms
+        $('#createPartModal').on('hidden.bs.modal', function() {
+            $('#createPartForm')[0].reset();
+        });
+    });
+</script>
+{% endblock %} 

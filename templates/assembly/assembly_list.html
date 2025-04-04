@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block title %}Montaj İşlemleri{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Handle new assembly creation
+        $('#new-assembly-form').on('submit', function(e) {
+            e.preventDefault();
+            
+            $.ajax({
+                url: '/assembly/api/processes/',
+                type: 'POST',
+                data: JSON.stringify({
+                    aircraft_type: $('#aircraft-type').val()
+                }),
+                contentType: 'application/json',
+                success: function(response) {
+                    toastr.success('Yeni montaj süreci başlatıldı.');
+                    // Redirect to the assembly detail page
+                    window.location.href = `/assembly/detail/${response.id}/`;
+                },
+                error: function(xhr) {
+                    let errorMsg = 'Montaj başlatılırken bir hata oluştu.';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                    }
+                    toastr.error(errorMsg);
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Montaj İşlemleri</h1>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newAssemblyModal">
+                    Yeni Montaj Başlat
+                </button>
+            </div>
+            
+            <!-- Assembly Processes List -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    Mevcut Montaj Süreçleri
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Uçak Tipi</th>
+                                    <th>Durum</th>
+                                    <th>Başlatan</th>
+                                    <th>Başlama Tarihi</th>
+                                    <th>Son Güncelleyen</th>
+                                    <th>Son Güncelleme Tarihi</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assembly-list">
+                                {% for assembly in assemblies %}
+                                <tr class="{% if assembly.status == 'in_progress' %}table-info{% elif assembly.status == 'completed' %}table-success{% else %}table-danger{% endif %}">
+                                    <td>{{ assembly.id }}</td>
+                                    <td>
+                                        <span class="badge {% if assembly.aircraft_type == 'TB2' %}bg-info{% elif assembly.aircraft_type == 'TB3' %}bg-success{% elif assembly.aircraft_type == 'AKINCI' %}bg-warning{% else %}bg-danger{% endif %}">
+                                            {{ assembly.get_aircraft_type_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ assembly.get_status_display }}</td>
+                                    <td>{{ assembly.started_by.username }}</td>
+                                    <td>{{ assembly.start_date|date:"d.m.Y H:i" }}</td>
+                                    <td>{{ assembly.completed_by.username|default:"-" }}</td>
+                                    <td>{{ assembly.completion_date|date:"d.m.Y H:i"|default:"-" }}</td>
+                                    <td>
+                                        <a href="{% url 'assembly_detail' assembly.id %}" class="btn btn-sm btn-primary">
+                                            {% if assembly.status == 'in_progress' %}
+                                                Montaja Devam Et
+                                            {% else %}
+                                                Detayları Gör
+                                            {% endif %}
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center">Henüz hiç montaj süreci başlatılmamış.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Completed Aircraft Section -->
+            <div class="card mt-4">
+                <div class="card-header bg-success text-white">
+                    Tamamlanmış Uçaklar
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Uçak Tipi</th>
+                                    <th>Montaj Tarihi</th>
+                                    <th>Parçalar</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody id="aircraft-list">
+                                {% for aircraft in completed_aircraft %}
+                                <tr>
+                                    <td>{{ aircraft.id }}</td>
+                                    <td>
+                                        <span class="badge {% if aircraft.aircraft_type == 'TB2' %}bg-info{% elif aircraft.aircraft_type == 'TB3' %}bg-success{% elif aircraft.aircraft_type == 'AKINCI' %}bg-warning{% else %}bg-danger{% endif %}">
+                                            {{ aircraft.get_aircraft_type_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ aircraft.assembled_at|date:"d.m.Y H:i" }}</td>
+                                    <td>{{ aircraft.parts.count }} parça</td>
+                                    <td>
+                                        <a href="{% url 'aircraft_detail' aircraft.id %}" class="btn btn-sm btn-info">
+                                            Detayları Gör
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">Henüz hiç uçak tamamlanmamış.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Assembly Modal -->
+<div class="modal fade" id="newAssemblyModal" tabindex="-1" aria-labelledby="newAssemblyModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newAssemblyModalLabel">Yeni Montaj Başlat</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="new-assembly-form">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="aircraft-type" class="form-label">Uçak Tipi</label>
+                        <select class="form-select" id="aircraft-type" required>
+                            <option value="">Seçiniz</option>
+                            <option value="TB2">TB2</option>
+                            <option value="TB3">TB3</option>
+                            <option value="AKINCI">AKINCI</option>
+                            <option value="KIZILELMA">KIZILELMA</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">Montaj Başlat</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

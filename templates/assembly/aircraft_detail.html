@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ aircraft.aircraft_type_display }} #{{ aircraft.id }}{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<link href="{% static 'css/assembly.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'assembly_list' %}">Montaj İşlemleri</a></li>
+                    <li class="breadcrumb-item active">{{ aircraft.aircraft_type_display }} #{{ aircraft.id }}</li>
+                </ol>
+            </nav>
+            
+            <div class="d-flex justify-content-between align-items-center">
+                <h1>
+                    <span class="badge {% if aircraft.aircraft_type == 'TB2' %}bg-info{% elif aircraft.aircraft_type == 'TB3' %}bg-success{% elif aircraft.aircraft_type == 'AKINCI' %}bg-warning{% else %}bg-danger{% endif %} me-2">
+                        {{ aircraft.aircraft_type_display }}
+                    </span>
+                    Uçak #{{ aircraft.id }}
+                </h1>
+                <div>
+                    <span class="badge bg-success fs-6">Montaj Tamamlandı</span>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Uçak Bilgileri</h5>
+                    <p>
+                        <strong>Uçak Tipi:</strong> 
+                        <span class="badge {% if aircraft.aircraft_type == 'TB2' %}bg-info{% elif aircraft.aircraft_type == 'TB3' %}bg-success{% elif aircraft.aircraft_type == 'AKINCI' %}bg-warning{% else %}bg-danger{% endif %}">
+                            {{ aircraft.aircraft_type_display }}
+                        </span>
+                    </p>
+                    <p><strong>Montaj Tarihi:</strong> {% if aircraft.assembled_at %}{{ aircraft.assembled_at|date:"d.m.Y H:i" }}{% else %}Belirsiz{% endif %}</p>
+                    
+                    {% if assembly_process %}
+                    <p>
+                        <strong>Montaj Süreci:</strong> 
+                        <a href="{% url 'assembly_detail' assembly_process.id %}">#{{ assembly_process.id }}</a>
+                    </p>
+                    <p><strong>Montaj Başlangıç:</strong> {{ start_date|date:"d.m.Y H:i" }}</p>
+                    <p><strong>Montaj Bitiş:</strong> {{ completion_date|date:"d.m.Y H:i" }}</p>
+                    <p><strong>Montajı Başlatan:</strong> {{ started_by.get_full_name|default:started_by.username }}</p>
+                    <p><strong>Montajı Tamamlayan:</strong> {{ completed_by.get_full_name|default:completed_by.username }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <!-- Aircraft Visual -->
+            <div class="aircraft-container">
+                <h4 class="text-center mb-3">{{ aircraft.aircraft_type_display }} Şeması</h4>
+                
+                <div class="aircraft-skeleton">
+                    <!-- Body Part -->
+                    <div class="aircraft-part part-body filled">
+                        {% if aircraft.parts %}
+                            {% for part in aircraft.parts %}
+                                {% if part.part_type == 'body' %}
+                                    {{ part.part_type_display }}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            Gövde
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Wing Part -->
+                    <div class="aircraft-part part-wing filled">
+                        {% if aircraft.parts %}
+                            {% for part in aircraft.parts %}
+                                {% if part.part_type == 'wing' %}
+                                    {{ part.part_type_display }}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            Kanat
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Tail Part -->
+                    <div class="aircraft-part part-tail filled">
+                        {% if aircraft.parts %}
+                            {% for part in aircraft.parts %}
+                                {% if part.part_type == 'tail' %}
+                                    {{ part.part_type_display }}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            Kuyruk
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Avionics Part -->
+                    <div class="aircraft-part part-avionics filled">
+                        {% if aircraft.parts %}
+                            {% for part in aircraft.parts %}
+                                {% if part.part_type == 'avionics' %}
+                                    {{ part.part_type_display }}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            Aviyonik
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- Parts List -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Kullanılan Parçalar</h5>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% if aircraft.parts %}
+                            {% for part in aircraft.parts %}
+                            <li class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <span class="badge bg-secondary">#{{ part.id }}</span>
+                                        {{ part.part_type_display }}
+                                    </span>
+                                    <small class="text-muted">Üretim: {% if part.created_at %}{{ part.created_at }}{% else %}--{% endif %}</small>
+                                </div>
+                                {% if part.creator_info %}
+                                <small>Üreten: {{ part.creator_info.username }} {% if part.team_info %}({{ part.team_info.name }}){% endif %}</small>
+                                {% endif %}
+                            </li>
+                            {% empty %}
+                            <li class="list-group-item text-center">Parça bulunamadı</li>
+                            {% endfor %}
+                        {% else %}
+                            <li class="list-group-item text-center">Parça bilgilerine erişilemiyor</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <a href="{% url 'assembly_list' %}" class="btn btn-secondary w-100">
+                    Montaj Listesine Dön
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
