@@ -24,7 +24,19 @@ Bu uygulama Docker ve Docker Compose kullanılarak konteynerize edilmiştir.
    docker-compose up -d --build
    ```
 
-3. Uygulama http://localhost:8000 adresinde erişilebilir olacaktır
+3. Uygulama http://localhost:8000 adresinde erişilebilir olacaktır.
+
+4. Admin kullanıcısı için username ve şifre:
+   ```
+   admin
+   123456
+   ```
+
+5. Açılan yönetim panelinden rol ve kullanıcı ayarlamaları yapıp uygun adımları izleyebilirsiniz.
+
+   ![Yönetim Paneli](https://github.com/alperenzkurt/django-crud/blob/main/static/img/kullan%C4%B1c%C4%B1_y%C3%B6netim_paneli.png)
+   ![Giriş Ekranı](https://github.com/alperenzkurt/django-crud/blob/main/static/img/kullan%C4%B1c%C4%B1_y%C3%B6netim_paneli2.png)
+
 
 ### Geliştirme İş Akışı
 
