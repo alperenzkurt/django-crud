@@ -27,8 +27,8 @@ class Team(models.Model):
     def __str__(self):
         return self.name
     
+    """Check if team can produce this type of part"""
     def can_produce_part(self, part_type):
-        """Check if team can produce this type of part"""
         # Assembly team can't produce parts
         if self.team_type == 'assembly':
             return False

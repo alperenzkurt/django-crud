@@ -22,8 +22,7 @@ $(document).ready(function() {
             url: `/assembly/api/available-parts/${aircraftType}/`,
             type: 'GET',
             success: function(response) {
-                displayAvailableParts(response.parts);
-                checkMissingParts(response.available_parts);
+                displayAvailableParts(response);
             },
             error: function(error) {
                 toastr.error('Parçalar yüklenirken hata oluştu.');
@@ -35,38 +34,38 @@ $(document).ready(function() {
     /**
      * Display available parts in the parts panel
      */
-    function displayAvailableParts(parts) {
+    function displayAvailableParts(partsData) {
         const partsPanel = $('#parts-panel');
         partsPanel.empty();
         
-        if (parts.length === 0) {
+        // Check if we have any parts
+        let hasParts = false;
+        for (const partType in partsData) {
+            if (partsData[partType].count > 0) {
+                hasParts = true;
+                break;
+            }
+        }
+        
+        if (!hasParts) {
             partsPanel.append('<div class="alert alert-warning">Bu uçak için kullanılabilir parça bulunamadı.</div>');
             return;
         }
-        
-        // Group parts by type
-        const partsByType = {};
-        parts.forEach(part => {
-            if (!partsByType[part.part_type]) {
-                partsByType[part.part_type] = [];
-            }
-            partsByType[part.part_type].push(part);
-        });
         
         // Define part type display order
         const partTypeOrder = ['body', 'wing', 'tail', 'avionics'];
         
         // Create section for each part type in the specified order
         partTypeOrder.forEach(partType => {
-            if (!partsByType[partType] || partsByType[partType].length === 0) {
+            if (!partsData[partType] || partsData[partType].count === 0) {
                 return; // Skip if no parts of this type
             }
             
-            const partTypeDisplay = partsByType[partType][0].part_type_display;
+            const typeData = partsData[partType];
             
             const typeSection = $(`
                 <div class="mb-4 part-type-section" id="part-section-${partType}">
-                    <h5 class="border-bottom pb-2">${partTypeDisplay} Parçaları</h5>
+                    <h5 class="border-bottom pb-2">${typeData.name} Parçaları (${typeData.count})</h5>
                     <div class="part-type-container" id="part-type-${partType}"></div>
                 </div>
             `);
@@ -74,19 +73,17 @@ $(document).ready(function() {
             const container = typeSection.find(`#part-type-${partType}`);
             
             // Add each part to its section
-            partsByType[partType].forEach(part => {
+            typeData.parts.forEach(part => {
                 const partCard = $(`
-                    <div class="part-card" data-part-id="${part.id}" data-part-type="${part.part_type}">
+                    <div class="part-card" data-part-id="${part.id}" data-part-type="${partType}">
                         <div class="d-flex justify-content-between align-items-center">
                             <span>
                                 <span class="badge bg-secondary">#${part.id}</span>
-                                ${part.part_type_display}
+                                ${typeData.name}
                             </span>
-                            <span class="aircraft-type-badge aircraft-type-${part.aircraft_type}">
-                                ${part.aircraft_type_display}
-                            </span>
+                            <span class="text-muted small">${part.created_at}</span>
                         </div>
-                        <small class="text-muted d-block mt-1">Üretim: ${new Date(part.created_at).toLocaleString()}</small>
+                        <small class="text-muted d-block mt-1">Üretici: ${part.team} (${part.creator})</small>
                     </div>
                 `);
                 
@@ -156,7 +153,7 @@ $(document).ready(function() {
             
             // Check if this part type is already in the assembly
             if ($(`.aircraft-part.part-${partType}`).hasClass('filled')) {
-                toastr.warning(`Bu montajda zaten bir ${partCard.find('span:first').text().trim()} parçası var.`);
+                toastr.warning(`Bu montajda zaten bir ${partType} parçası var.`);
                 return true; // continue to next part
             }
             
@@ -174,6 +171,9 @@ $(document).ready(function() {
             type: 'POST',
             data: JSON.stringify({ part_ids: partIds }),
             contentType: 'application/json',
+            headers: {
+                'X-CSRFTOKEN': getCookie('csrftoken')
+            },
             success: function(response) {
                 if (response.added_parts && response.added_parts.length > 0) {
                     toastr.success(`${response.added_parts.length} parça başarıyla eklendi.`);
@@ -189,73 +189,117 @@ $(document).ready(function() {
                         }
                     });
                     
-                    // Update the skeleton display and logs
-                    updateSkeletonDisplay();
-                    
-                    // Check if we have all parts to complete assembly
-                    checkCompletionEligibility();
+                    // Use the refresh function instead of immediate reload
+                    refreshView();
                 }
                 
                 // Display any errors
                 if (response.errors && response.errors.length > 0) {
                     response.errors.forEach(error => {
-                        toastr.error(`Hata (Parça #${error.part_id}): ${error.error || JSON.stringify(error.errors)}`);
+                        toastr.error(`Hata: ${error.error || JSON.stringify(error)}`);
                     });
                 }
             },
             error: function(xhr) {
-                let errorMsg = 'Parçalar eklenirken bir hata oluştu.';
+                let errorMsg = 'Parça eklenirken bir hata oluştu.';
                 if (xhr.responseJSON && xhr.responseJSON.error) {
                     errorMsg = xhr.responseJSON.error;
                 }
                 toastr.error(errorMsg);
+                console.error('Error adding parts:', xhr.responseText);
             }
         });
     });
     
     /**
-     * Update the skeleton display based on current assembly parts
+     * Helper function to get CSRF token from cookie
+     */
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    /**
+     * Update the assembly skeleton display
+     * Sets appropriate classes based on filled parts
      */
     function updateSkeletonDisplay() {
-        // Get current assembly status and parts
+        // First clear all fill states
+        $('.aircraft-part').removeClass('filled').empty();
+        
+        // Load the current state of the assembly
         $.ajax({
             url: `/assembly/api/processes/${assemblyId}/`,
             type: 'GET',
             success: function(assembly) {
-                // Update assembly status
-                updateAssemblyStatus(assembly);
+                // Update parts display
+                if (assembly.parts && assembly.parts.length > 0) {
+                    assembly.parts.forEach(part => {
+                        const partType = part.part.part_type;
+                        const partDisplay = part.part.part_type_display;
+                        $(`.aircraft-part.part-${partType}`).addClass('filled').html(`<span>${partDisplay}</span>`);
+                    });
+                }
                 
-                // Update header information
-                updateHeaderInfo(assembly);
-                
-                // Mark parts as filled/unfilled without changing their position
-                $('.aircraft-part').each(function() {
-                    const partElement = $(this);
-                    const partType = partElement.data('part-type');
-                    const matchingPart = assembly.parts.find(p => p.part.part_type === partType);
+                // Update missing parts warning
+                if (assembly.missing_parts && assembly.missing_parts.length > 0) {
+                    $('#missing-parts-warning').removeClass('d-none');
                     
-                    if (matchingPart) {
-                        // Part exists in assembly - mark as filled
-                        partElement.addClass('filled');
-                        partElement.text(matchingPart.part.part_type_display);
-                    } else {
-                        // Part doesn't exist in assembly - mark as unfilled
-                        partElement.removeClass('filled');
-                        partElement.text('');
-                    }
-                });
+                    // Create readable missing parts list
+                    const partNames = assembly.missing_parts.map(partType => {
+                        switch(partType) {
+                            case 'wing': return 'Kanat';
+                            case 'body': return 'Gövde';
+                            case 'tail': return 'Kuyruk';
+                            case 'avionics': return 'Aviyonik';
+                            default: return partType;
+                        }
+                    });
+                    
+                    $('#missing-parts-list').text(partNames.join(', '));
+                    
+                    // Disable complete button
+                    $('#complete-assembly-btn').prop('disabled', true);
+                } else {
+                    $('#missing-parts-warning').addClass('d-none');
+                    // Enable complete button if no missing parts
+                    $('#complete-assembly-btn').prop('disabled', false);
+                }
                 
-                // Update completion button state
-                checkCompletionEligibility(assembly.missing_parts);
-                
-                // Update logs
-                updateAssemblyLogs(assembly.logs);
+                // Update buttons based on assembly status
+                if (assembly.status !== 'in_progress') {
+                    $('.assembly-in-progress-actions').addClass('d-none');
+                } else {
+                    $('.assembly-in-progress-actions').removeClass('d-none');
+                }
             },
             error: function(error) {
-                toastr.error('Montaj durumu güncellenirken hata oluştu.');
-                console.error('Error updating assembly:', error);
+                console.error('Error loading assembly data:', error);
             }
         });
+    }
+    
+    /**
+     * Refresh the page after a short delay to reflect changes
+     */
+    function refreshView() {
+        // Show a loading message
+        toastr.info('Değişiklikler yükleniyor...');
+        
+        // Refresh the page after a short delay
+        setTimeout(function() {
+            location.reload();
+        }, 1000);
     }
     
     /**

@@ -18,10 +18,8 @@ User = get_user_model()
 # Create your views here.
 @login_required
 def home(request):
-    # Get user's last login time
     last_login = request.user.last_login
     
-    # Get production statistics
     from apps.assembly.models import AssemblyProcess
     completed_count = AssemblyProcess.objects.filter(status='completed').count()
     in_progress_count = AssemblyProcess.objects.filter(status='in_progress').count()
@@ -42,7 +40,7 @@ def login_page(request):
         user = authenticate(request, username=username, password=password)
         if user:
             login(request, user)
-            return redirect('/')  # Giriş sonrası yönlendirme
+            return redirect('/')
         else:
             error = "Kullanıcı adı veya şifre yanlış."
     return render(request, 'accounts/login.html', {'error': error})
@@ -123,7 +121,6 @@ def create_user(request):
 def edit_user(request, user_id):
     user = get_object_or_404(User, id=user_id)
     
-    # Handle quick team assignment
     if request.method == 'POST' and 'team' in request.POST and not request.POST.get('username'):
         team_id = request.POST.get('team')
         if team_id:
@@ -133,7 +130,6 @@ def edit_user(request, user_id):
         user.save()
         return JsonResponse({'success': True, 'message': 'Takım başarıyla atandı.'})
     
-    # Handle full form submission
     form = AdminUserUpdateForm(request.POST or None, instance=user)
     
     if request.method == 'POST' and form.is_valid():
@@ -178,7 +174,6 @@ def change_password(request, user_id):
                 return JsonResponse({'success': True, 'message': 'Şifre başarıyla değiştirildi.'})
             return redirect('user_list')
         else:
-            # Form has errors
             context = {
                 'form': form,
                 'user': user,
@@ -202,12 +197,11 @@ def change_password(request, user_id):
     
     return render(request, 'accounts/password_change_form.html', context)
 
+"""View all teams and their members"""
 @login_required
 def team_viewer(request):
-    """View all teams and their members"""
     teams = Team.objects.all()
     
-    # Prepare team data with member counts
     team_data = []
     for team in teams:
         members = User.objects.filter(team=team)

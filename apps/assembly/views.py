@@ -37,12 +37,40 @@ class AssemblyProcessViewSet(viewsets.ModelViewSet):
     serializer_class = AssemblyProcessSerializer
     permission_classes = [IsAssemblyTeamMember]
     
+    """Get all assembly processes"""
     def get_queryset(self):
-        """Get all assembly processes"""
         return AssemblyProcess.objects.all().order_by('-start_date')
     
+    """List method to add formatted data to each item"""
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        data = serializer.data
+        
+        # Add explicit display values to each item
+        for item in data:
+            assembly = AssemblyProcess.objects.get(id=item['id'])
+            item['get_status_display'] = assembly.get_status_display()
+            item['get_aircraft_type_display'] = assembly.get_aircraft_type_display()
+            
+            # Format dates
+            if item['start_date']:
+                item['start_date'] = assembly.start_date.strftime('%d.%m.%Y %H:%M')
+            
+            if item['completion_date']:
+                item['completion_date'] = assembly.completion_date.strftime('%d.%m.%Y %H:%M')
+                
+            # Add user information
+            if assembly.started_by:
+                item['started_by'] = assembly.started_by.username
+            
+            if assembly.completed_by:
+                item['completed_by'] = assembly.completed_by.username
+
+        return Response(data)
+    
+    """Create a new assembly process and log it"""
     def perform_create(self, serializer):
-        """Create a new assembly process and log it"""
         process = serializer.save(started_by=self.request.user)
         # Create log entry for starting the assembly
         AssemblyLog.objects.create(
@@ -51,8 +79,8 @@ class AssemblyProcessViewSet(viewsets.ModelViewSet):
             action='started'
         )
     
+    """Override retrieve to add formatted data"""
     def retrieve(self, request, *args, **kwargs):
-        """Override retrieve to add formatted data"""
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         data = serializer.data
@@ -118,9 +146,9 @@ class AssemblyProcessViewSet(viewsets.ModelViewSet):
         
         return Response(data)
     
+    """Add parts to the assembly process"""
     @action(detail=True, methods=['post'])
     def add_part(self, request, pk=None):
-        """Add parts to the assembly process"""
         assembly = self.get_object()
         
         # Check if assembly is already completed
@@ -225,9 +253,9 @@ class AssemblyProcessViewSet(viewsets.ModelViewSet):
             "errors": errors
         }, status=status.HTTP_201_CREATED if added_parts else status.HTTP_400_BAD_REQUEST)
     
+    """Remove a part from the assembly process"""
     @action(detail=True, methods=['post'])
     def remove_part(self, request, pk=None):
-        """Remove a part from the assembly process"""
         assembly = self.get_object()
         
         # Check if assembly is already completed
@@ -268,42 +296,47 @@ class AssemblyProcessViewSet(viewsets.ModelViewSet):
         except AssemblyPart.DoesNotExist:
             return Response({"error": "Part not found in this assembly"}, status=status.HTTP_404_NOT_FOUND)
     
+    """Complete an assembly process, creating an aircraft"""
     @action(detail=True, methods=['post'])
     def complete_assembly(self, request, pk=None):
-        """Complete the assembly process and create the aircraft"""
         assembly = self.get_object()
         
-        # Check if assembly is in progress
+        # Check if assembly is already completed
         if assembly.status != 'in_progress':
             return Response(
-                {"error": "Only in-progress assemblies can be completed"}, 
+                {"error": "Assembly is already completed or cancelled."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         # Check if all required parts are present
-        missing_parts = assembly.get_missing_parts()
-        if missing_parts:
-            missing_parts_display = [dict(PART_TYPES).get(pt) for pt in missing_parts]
-            return Response(
-                {"error": f"Cannot complete assembly. Missing parts: {', '.join(missing_parts_display)}"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        required_parts = set(part_type for part_type, _ in PART_TYPES)
+        existing_part_types = set(assembly.assemblypart_set.values_list('part__part_type', flat=True))
         
+        missing_parts = required_parts - existing_part_types
+        if missing_parts:
+            # Format the missing parts list with display names
+            missing_part_names = [dict(PART_TYPES)[part_type] for part_type in missing_parts]
+            return Response({
+                "error": f"Assembly is incomplete. Missing parts: {', '.join(missing_part_names)}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # All parts present, complete the assembly
         with transaction.atomic():
-            # Create aircraft
-            aircraft = Aircraft.objects.create(aircraft_type=assembly.aircraft_type)
+            # Create an Aircraft object
+            aircraft = Aircraft.objects.create(
+                aircraft_type=assembly.aircraft_type
+            )
             
-            # Link parts to the aircraft
+            # Update all parts to mark them as used in this aircraft
             for assembly_part in assembly.assemblypart_set.all():
                 part = assembly_part.part
                 part.used_in_aircraft = aircraft
-                part.save()
+                part.save(update_fields=['used_in_aircraft'])
             
-            # Update assembly status
+            # Update the assembly status
             assembly.status = 'completed'
             assembly.completed_by = request.user
             assembly.completion_date = timezone.now()
-            assembly.aircraft = aircraft
             assembly.save()
             
             # Create log entry
@@ -311,104 +344,85 @@ class AssemblyProcessViewSet(viewsets.ModelViewSet):
                 assembly=assembly,
                 action_by=request.user,
                 action='completed',
-                notes=f"{assembly.get_aircraft_type_display()} montajı tamamlandı"
+                notes=f"Montaj tamamlandı. Uçak ID: {aircraft.id}"
             )
-            
-            # Return the aircraft details
-            return Response(
-                {
-                    "message": f"{assembly.get_aircraft_type_display()} successfully assembled",
-                    "aircraft": AircraftDetailSerializer(aircraft).data
-                },
-                status=status.HTTP_200_OK
-            )
+        
+        return Response({
+            "message": "Assembly completed successfully",
+            "aircraft_id": aircraft.id
+        }, status=status.HTTP_200_OK)
     
+    """Cancel an assembly process, returning parts to inventory"""
     @action(detail=True, methods=['post'])
     def cancel_assembly(self, request, pk=None):
-        """Cancel an in-progress assembly"""
         assembly = self.get_object()
         
-        # Check if assembly is in progress
+        # Check if assembly is already completed
         if assembly.status != 'in_progress':
             return Response(
-                {"error": "Only in-progress assemblies can be cancelled"}, 
+                {"error": "Assembly is already completed or cancelled."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         with transaction.atomic():
-            # Get all parts currently in the assembly
-            assembly_parts = AssemblyPart.objects.filter(assembly=assembly)
-            
-            # Create log entries for each part removal
-            for assembly_part in assembly_parts:
-                part = assembly_part.part
-                AssemblyLog.objects.create(
-                    assembly=assembly,
-                    action_by=request.user,
-                    action='removed_part',
-                    part=part,
-                    notes=f"İptal sırasında çıkarılan parça: {part.get_part_type_display()}"
-                )
-            
-            # Delete all assembly-part relationships, which returns parts to the available pool
-            assembly_parts.delete()
-            
-            # Update assembly status
+            # Update the assembly status
             assembly.status = 'cancelled'
             assembly.completed_by = request.user
             assembly.completion_date = timezone.now()
             assembly.save()
             
-            # Create cancel log entry
+            # Create log entry
             AssemblyLog.objects.create(
                 assembly=assembly,
                 action_by=request.user,
                 action='cancelled',
-                notes=request.data.get('reason', 'No reason provided')
+                notes="Montaj iptal edildi."
             )
         
-        return Response({"message": "Assembly cancelled and all parts returned to inventory"}, status=status.HTTP_200_OK)
+        return Response({
+            "message": "Assembly cancelled successfully"
+        }, status=status.HTTP_200_OK)
 
 
 class AvailablePartsView(APIView):
     """View to list all available parts for a specific aircraft type"""
     permission_classes = [IsAssemblyTeamMember]
     
+    """Get available parts for assembly by aircraft type"""
     def get(self, request, aircraft_type=None):
         if not aircraft_type:
             return Response({"error": "Aircraft type is required"}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Get available parts (not used in any aircraft and not recycled and not assigned to any assembly)
-        parts = Part.objects.filter(
+        # Get available parts for this aircraft type not in use
+        available_parts = Part.objects.filter(
             aircraft_type=aircraft_type,
             used_in_aircraft__isnull=True,
             is_recycled=False
         ).exclude(
-            assemblypart__isnull=False  # Exclude parts that are in any assembly
+            id__in=AssemblyPart.objects.values_list('part_id', flat=True)
         )
         
         # Group by part type
         parts_by_type = {}
-        for part_type, _ in PART_TYPES:
-            parts_by_type[part_type] = Part.objects.filter(
-                part_type=part_type,
-                aircraft_type=aircraft_type,
-                used_in_aircraft__isnull=True,
-                is_recycled=False
-            ).exclude(
-                assemblypart__isnull=False  # Exclude parts that are in any assembly
-            ).count()
+        for part_type, name in PART_TYPES:
+            parts = available_parts.filter(part_type=part_type)
+            parts_data = []
+            
+            for part in parts:
+                parts_data.append({
+                    'id': part.id,
+                    'team': part.team.name if part.team else None,
+                    'creator': part.creator.username if part.creator else None,
+                    'created_at': part.created_at.strftime('%d.%m.%Y %H:%M')
+                })
+            
+            parts_by_type[part_type] = {
+                'name': name,
+                'parts': parts_data,
+                'count': len(parts_data)
+            }
         
-        # Get count of existing aircraft of this type
-        aircraft_count = Aircraft.objects.filter(aircraft_type=aircraft_type).count()
-        
-        from apps.assembly.serializers import PartBriefSerializer
-        return Response({
-            "aircraft_type": aircraft_type,
-            "existing_aircraft_count": aircraft_count,
-            "available_parts": parts_by_type,
-            "parts": PartBriefSerializer(parts, many=True).data
-        })
+        return Response(parts_by_type)
 
 
 class CompletedAircraftViewSet(viewsets.ReadOnlyModelViewSet):
@@ -416,9 +430,30 @@ class CompletedAircraftViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AircraftDetailSerializer
     permission_classes = [IsAssemblyTeamMember]
     
+    """Get all aircraft that have all required parts"""
     def get_queryset(self):
-        """Get all completed aircraft"""
-        return Aircraft.objects.all().order_by('-assembled_at')
+        return Aircraft.objects.all().order_by('-id')
+        
+    """List method to add formatted data to each item"""
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        data = serializer.data
+        
+        # Add explicit display values to each item
+        for item in data:
+            aircraft = Aircraft.objects.get(id=item['id'])
+            item['get_aircraft_type_display'] = aircraft.get_aircraft_type_display()
+            item['aircraft_type_display'] = aircraft.get_aircraft_type_display()
+            
+            # Format dates
+            if item['assembled_at']:
+                item['assembled_at'] = aircraft.assembled_at.strftime('%d.%m.%Y %H:%M')
+                
+            # Add parts count
+            item['parts_count'] = aircraft.part_set.count()
+
+        return Response(data)
 
 
 # Template Views

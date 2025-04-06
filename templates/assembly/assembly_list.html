@@ -3,8 +3,88 @@
 {% block title %}Montaj İşlemleri{% endblock %}
 
 {% block extra_js %}
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 <script>
     $(document).ready(function() {
+        // Initialize DataTables for assembly processes
+        $('#assembliesTable').DataTable({
+            processing: true,
+            serverSide: false,
+            ajax: {
+                url: '/assembly/api/processes/',
+                type: 'GET',
+                dataSrc: function(json) {
+                    return json;
+                }
+            },
+            columns: [
+                { data: 'id' },
+                { 
+                    data: 'aircraft_type_display',
+                    render: function(data, type, row) {
+                        let badgeClass = 'bg-info';
+                        if (row.aircraft_type === 'TB3') badgeClass = 'bg-success';
+                        else if (row.aircraft_type === 'AKINCI') badgeClass = 'bg-warning';
+                        else if (row.aircraft_type === 'KIZILELMA') badgeClass = 'bg-danger';
+                        return '<span class="badge ' + badgeClass + '">' + data + '</span>';
+                    }
+                },
+                { 
+                    data: 'status_display',
+                    render: function(data, type, row) {
+                        let badgeClass = 'bg-info';
+                        if (row.status === 'completed') badgeClass = 'bg-success';
+                        else if (row.status === 'cancelled') badgeClass = 'bg-danger';
+                        return '<span class="badge ' + badgeClass + '">' + data + '</span>';
+                    }
+                },
+                { 
+                    data: 'started_by',
+                    render: function(data, type, row) {
+                        return data ? data : '-';
+                    }
+                },
+                { 
+                    data: 'start_date',
+                    render: function(data) {
+                        if (data) {
+                            const date = new Date(data);
+                            return date.toLocaleString('tr-TR');
+                        }
+                        return '-';
+                    }
+                },
+                {
+                    data: 'completed_by',
+                    render: function(data, type, row) {
+                        return data ? data : '-';
+                    }
+                },
+                {
+                    data: 'completion_date',
+                    render: function(data) {
+                        if (data) {
+                            const date = new Date(data);
+                            return date.toLocaleString('tr-TR');
+                        }
+                        return '-';
+                    }
+                },
+                {
+                    data: null,
+                    render: function(data, type, row) {
+                        const buttonText = row.status === 'in_progress' ? 'Montaja Devam Et' : 'Detayları Gör';
+                        return '<a href="/assembly/detail/' + row.id + '/" class="btn btn-sm btn-primary">' + buttonText + '</a>';
+                    }
+                }
+            ],
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.11.5/i18n/tr.json'
+            }
+        });
+
         // Handle new assembly creation
         $('#new-assembly-form').on('submit', function(e) {
             e.preventDefault();
@@ -18,6 +98,8 @@
                 contentType: 'application/json',
                 success: function(response) {
                     toastr.success('Yeni montaj süreci başlatıldı.');
+                    // Refresh the tables
+                    $('#assembliesTable').DataTable().ajax.reload();
                     // Redirect to the assembly detail page
                     window.location.href = `/assembly/detail/${response.id}/`;
                 },
@@ -29,6 +111,53 @@
                     toastr.error(errorMsg);
                 }
             });
+        });
+
+        // Initialize DataTables for completed aircraft
+        $('#aircraftTable').DataTable({
+            processing: true,
+            serverSide: false, // Change to false as we'll handle all data at once
+            ajax: {
+                url: '/assembly/api/aircraft/',
+                type: 'GET',
+                dataSrc: function(json) {
+                    // API returns array directly
+                    return json;
+                }
+            },
+            columns: [
+                { data: 'id' },
+                { 
+                    data: 'aircraft_type_display',
+                    render: function(data, type, row) {
+                        let badgeClass = 'bg-info';
+                        if (row.aircraft_type === 'TB3') badgeClass = 'bg-success';
+                        else if (row.aircraft_type === 'AKINCI') badgeClass = 'bg-warning';
+                        else if (row.aircraft_type === 'KIZILELMA') badgeClass = 'bg-danger';
+                        return '<span class="badge ' + badgeClass + '">' + data + '</span>';
+                    }
+                },
+                { 
+                    data: 'assembled_at',
+                    render: function(data) {
+                        if (data) {
+                            const date = new Date(data);
+                            return date.toLocaleString('tr-TR');
+                        }
+                        return '-';
+                    } 
+                },
+                { data: 'parts_count' },
+                {
+                    data: null,
+                    render: function(data, type, row) {
+                        return '<a href="/assembly/aircraft/' + row.id + '/" class="btn btn-sm btn-info">Detayları Gör</a>';
+                    }
+                }
+            ],
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.11.5/i18n/tr.json'
+            }
         });
     });
 </script>
@@ -52,7 +181,7 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-striped">
+                        <table id="assembliesTable" class="table table-striped">
                             <thead>
                                 <tr>
                                     <th>#</th>
@@ -65,35 +194,8 @@
                                     <th>İşlemler</th>
                                 </tr>
                             </thead>
-                            <tbody id="assembly-list">
-                                {% for assembly in assemblies %}
-                                <tr class="{% if assembly.status == 'in_progress' %}table-info{% elif assembly.status == 'completed' %}table-success{% else %}table-danger{% endif %}">
-                                    <td>{{ assembly.id }}</td>
-                                    <td>
-                                        <span class="badge {% if assembly.aircraft_type == 'TB2' %}bg-info{% elif assembly.aircraft_type == 'TB3' %}bg-success{% elif assembly.aircraft_type == 'AKINCI' %}bg-warning{% else %}bg-danger{% endif %}">
-                                            {{ assembly.get_aircraft_type_display }}
-                                        </span>
-                                    </td>
-                                    <td>{{ assembly.get_status_display }}</td>
-                                    <td>{{ assembly.started_by.username }}</td>
-                                    <td>{{ assembly.start_date|date:"d.m.Y H:i" }}</td>
-                                    <td>{{ assembly.completed_by.username|default:"-" }}</td>
-                                    <td>{{ assembly.completion_date|date:"d.m.Y H:i"|default:"-" }}</td>
-                                    <td>
-                                        <a href="{% url 'assembly_detail' assembly.id %}" class="btn btn-sm btn-primary">
-                                            {% if assembly.status == 'in_progress' %}
-                                                Montaja Devam Et
-                                            {% else %}
-                                                Detayları Gör
-                                            {% endif %}
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="8" class="text-center">Henüz hiç montaj süreci başlatılmamış.</td>
-                                </tr>
-                                {% endfor %}
+                            <tbody>
+                                <!-- Data will be loaded with AJAX -->
                             </tbody>
                         </table>
                     </div>
@@ -107,7 +209,7 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-striped">
+                        <table id="aircraftTable" class="table table-striped">
                             <thead>
                                 <tr>
                                     <th>#</th>
@@ -117,28 +219,8 @@
                                     <th>İşlemler</th>
                                 </tr>
                             </thead>
-                            <tbody id="aircraft-list">
-                                {% for aircraft in completed_aircraft %}
-                                <tr>
-                                    <td>{{ aircraft.id }}</td>
-                                    <td>
-                                        <span class="badge {% if aircraft.aircraft_type == 'TB2' %}bg-info{% elif aircraft.aircraft_type == 'TB3' %}bg-success{% elif aircraft.aircraft_type == 'AKINCI' %}bg-warning{% else %}bg-danger{% endif %}">
-                                            {{ aircraft.get_aircraft_type_display }}
-                                        </span>
-                                    </td>
-                                    <td>{{ aircraft.assembled_at|date:"d.m.Y H:i" }}</td>
-                                    <td>{{ aircraft.parts.count }} parça</td>
-                                    <td>
-                                        <a href="{% url 'aircraft_detail' aircraft.id %}" class="btn btn-sm btn-info">
-                                            Detayları Gör
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-center">Henüz hiç uçak tamamlanmamış.</td>
-                                </tr>
-                                {% endfor %}
+                            <tbody>
+                                <!-- Data will be loaded with AJAX -->
                             </tbody>
                         </table>
                     </div>

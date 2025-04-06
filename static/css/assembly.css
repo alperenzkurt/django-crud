@@ -1,4 +1,22 @@
 /* Aircraft Assembly Interface Styles */
+.part-item {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.part-item:hover {
+    background-color: #f8f9fa;
+}
+
+.part-item.selected {
+    background-color: #e9f5fe;
+    border-color: #0d6efd !important;
+}
+
+#available-parts-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
 
 .aircraft-container {
     width: 100%;

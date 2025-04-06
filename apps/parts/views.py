@@ -23,11 +23,11 @@ class PartViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'part_type', 'aircraft_type']
     ordering = ['-created_at']
 
+    """
+    Filter parts based on user's team
+    Assembly team can see all parts, other teams only see their own parts
+    """
     def get_queryset(self):
-        """
-        Filter parts based on user's team
-        Assembly team can see all parts, other teams only see their own parts
-        """
         user = self.request.user
         if not user.team:
             return Part.objects.none()
@@ -37,8 +37,8 @@ class PartViewSet(viewsets.ModelViewSet):
         else:
             return Part.objects.filter(team=user.team)
 
+    """Ensure teams can only create parts of their type"""
     def perform_create(self, serializer):
-        """Ensure teams can only create parts of their type"""
         user = self.request.user
         if not user.team:
             raise PermissionDenied("Bu kullanıcı bir takıma atanmamış.")
@@ -52,8 +52,8 @@ class PartViewSet(viewsets.ModelViewSet):
         # Set the team and creator automatically based on the user
         serializer.save(team=user.team, creator=user)
         
+    """Prevent changing part's type to one the team can't produce"""
     def perform_update(self, serializer):
-        """Prevent changing part's type to one the team can't produce"""
         user = self.request.user
         part = self.get_object()
         
@@ -67,8 +67,8 @@ class PartViewSet(viewsets.ModelViewSet):
             
         serializer.save()
         
+    """Override to implement recycling instead of real deletion and check permissions"""
     def perform_destroy(self, instance):
-        """Override to implement recycling instead of real deletion and check permissions"""
         user = self.request.user
         
         # Only allow users from the same team as the part to recycle it
@@ -85,7 +85,7 @@ class PartViewSet(viewsets.ModelViewSet):
             
         instance.delete()
 
+"""View for part management page"""
 @login_required
 def part_management(request):
-    """View for part management page"""
     return render(request, 'parts/part_management.html')

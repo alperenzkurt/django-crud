@@ -22,7 +22,7 @@ const ajax = {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', url, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
+        xhr.setRequestHeader('X-CSRFTOKEN', getCookie('csrftoken'));
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4) {
@@ -41,7 +41,7 @@ const ajax = {
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', url, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
+        xhr.setRequestHeader('X-CSRFTOKEN', getCookie('csrftoken'));
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4) {
@@ -59,7 +59,7 @@ const ajax = {
     delete: function(url, callback) {
         const xhr = new XMLHttpRequest();
         xhr.open('DELETE', url, true);
-        xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
+        xhr.setRequestHeader('X-CSRFTOKEN', getCookie('csrftoken'));
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4) {
@@ -75,7 +75,7 @@ const ajax = {
 };
 
 /**
- * Utility function to get CSRF token from cookies
+ * Improved utility function to get CSRF token from cookies
  * Required for AJAX POST, PUT, DELETE requests
  */
 function getCookie(name) {

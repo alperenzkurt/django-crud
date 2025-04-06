@@ -30,9 +30,29 @@
     <script>
         // Setup CSRF token for AJAX requests
         $(document).ready(function() {
+            // Improved getCookie function
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+            
+            // Set up global AJAX defaults for CSRF
             $.ajaxSetup({
-                headers: { 
-                    'X-CSRFToken': getCookie('csrftoken')
+                beforeSend: function(xhr, settings) {
+                    if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                        const csrftoken = getCookie('csrftoken');
+                        xhr.setRequestHeader("X-CSRFTOKEN", csrftoken);
+                    }
                 }
             });
             
@@ -111,6 +131,28 @@
     </div>
 
     {% block scripts %}{% endblock %}
+
+    <script>
+        // Common CSRF handling for all AJAX requests
+        $(document).ready(function() {
+            // Get CSRF token from cookie
+            function getCsrfToken() {
+                return document.cookie.split('; ')
+                    .find(row => row.startsWith('csrftoken='))
+                    ?.split('=')[1];
+            }
+            
+            // Set up jQuery AJAX to always include CSRF token
+            $.ajaxSetup({
+                beforeSend: function(xhr, settings) {
+                    if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                        const csrftoken = getCsrfToken();
+                        xhr.setRequestHeader("X-CSRFTOKEN", csrftoken);
+                    }
+                }
+            });
+        });
+    </script>
 </body>
 
 </html>

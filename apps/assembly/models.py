@@ -4,11 +4,12 @@ from apps.planes.models import Aircraft, AIRCRAFT_TYPES
 from apps.parts.models import Part
 
 # Create your models here.
-class AssemblyProcess(models.Model):
-    """
+
+"""
     Tracks an aircraft assembly process that might span multiple sessions
     and involve multiple assemblers
-    """
+"""
+class AssemblyProcess(models.Model):
     STATUS_CHOICES = (
         ('in_progress', 'Devam Ediyor'),
         ('completed', 'Tamamlandı'),
@@ -29,22 +30,23 @@ class AssemblyProcess(models.Model):
     @property
     def is_complete(self):
         return self.status == 'completed'
-    
+
+    """Returns all parts assigned to this assembly process"""
     @property
     def assigned_parts(self):
-        """Returns all parts assigned to this assembly process"""
         return self.assemblypart_set.all()
     
+    """Returns a list of part types that are missing from this assembly"""
     def get_missing_parts(self):
-        """Returns a list of part types that are missing from this assembly"""
         assigned_part_types = self.assemblypart_set.values_list('part__part_type', flat=True)
         all_part_types = ['wing', 'body', 'tail', 'avionics']
         return [pt for pt in all_part_types if pt not in assigned_part_types]
 
-class AssemblyPart(models.Model):
-    """
+
+"""
     Links a part to an assembly process
-    """
+"""
+class AssemblyPart(models.Model):
     assembly = models.ForeignKey(AssemblyProcess, on_delete=models.CASCADE)
     part = models.OneToOneField(Part, on_delete=models.CASCADE)
     added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
@@ -56,10 +58,10 @@ class AssemblyPart(models.Model):
     class Meta:
         unique_together = ('assembly', 'part')
 
-class AssemblyLog(models.Model):
-    """
+"""
     Tracks actions performed during the assembly process
-    """
+"""
+class AssemblyLog(models.Model):
     assembly = models.ForeignKey(AssemblyProcess, on_delete=models.CASCADE)
     action_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)

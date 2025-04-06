@@ -133,10 +133,32 @@
         // Initialize DataTable with AJAX source
         const table = $('#partsTable').DataTable({
             processing: true,
-            serverSide: false, // Set to true for server-side processing
+            serverSide: true, // Changed to true for server-side processing
             ajax: {
                 url: '/parts/api/parts/',
-                dataSrc: ''
+                type: 'GET',
+                data: function(d) {
+                    // DataTables sends pagination, ordering, and filtering parameters
+                    return {
+                        page: Math.ceil(d.start / d.length) + 1,
+                        page_size: d.length,
+                        ordering: d.columns[d.order[0].column].data + (d.order[0].dir === 'desc' ? '-' : ''),
+                        search: d.search.value
+                    };
+                },
+                dataSrc: function(json) {
+                    // Adjust for server response format
+                    return json.results || json;
+                },
+                beforeSend: function(xhr, settings) {
+                    // Get the CSRF token from the cookie
+                    const csrftoken = document.cookie.split('; ')
+                        .find(row => row.startsWith('csrftoken='))
+                        ?.split('=')[1];
+                    if (csrftoken) {
+                        xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                    }
+                }
             },
             columns: [
                 { data: 'id' },
@@ -185,11 +207,19 @@
                 aircraft_type: $('#aircraft_type').val(),
             };
 
+            // Get the CSRF token directly from the cookie
+            const csrftoken = document.cookie.split('; ')
+                .find(row => row.startsWith('csrftoken='))
+                ?.split('=')[1];
+
             $.ajax({
                 url: '/parts/api/parts/',
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(formData),
+                headers: {
+                    'X-CSRFTOKEN': csrftoken,
+                },
                 success: function(response) {
                     $('#createPartModal').modal('hide');
                     table.ajax.reload();
@@ -198,6 +228,7 @@
                 error: function(xhr) {
                     const errorMsg = xhr.responseJSON?.detail || 'Bir hata oluştu!';
                     toastr.error(errorMsg);
+                    console.error('CSRF Error:', xhr.responseText);
                 }
             });
         });
@@ -213,9 +244,17 @@
         $('#confirmDeleteBtn').click(function() {
             const partId = $('#deletePartId').val();
             
+            // Get the CSRF token directly from the cookie
+            const csrftoken = document.cookie.split('; ')
+                .find(row => row.startsWith('csrftoken='))
+                ?.split('=')[1];
+                
             $.ajax({
                 url: '/parts/api/parts/' + partId + '/',
                 type: 'DELETE',
+                headers: {
+                    'X-CSRFTOKEN': csrftoken,
+                },
                 success: function() {
                     $('#deletePartModal').modal('hide');
                     table.ajax.reload();
@@ -224,6 +263,7 @@
                 error: function(xhr) {
                     const errorMsg = xhr.responseJSON?.detail || 'Bir hata oluştu!';
                     toastr.error(errorMsg);
+                    console.error('CSRF Error:', xhr.responseText);
                 }
             });
         });

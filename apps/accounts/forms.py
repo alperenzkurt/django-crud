@@ -8,17 +8,16 @@ from django.core.exceptions import ValidationError
 User = get_user_model()
 
 class ProfileUpdateForm(UserChangeForm):
-    password = None  # Şifre alanını kaldır (istersen ayrı sayfa yaparız)
+    password = None
 
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email')  # takım yok burada
-
+        fields = ('first_name', 'last_name', 'email')
 class AdminUserCreateForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}))
     team = forms.ModelChoiceField(
         queryset=Team.objects.all(),
-        required=False,
+        required=False, 
         widget=forms.Select(attrs={'class': 'form-select'})
     )
 
