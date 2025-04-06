@@ -15,7 +15,7 @@ Bu uygulama Docker ve Docker Compose kullanılarak konteynerize edilmiştir.
 
 1. Depoyu klonlayın:
    ```
-   git clone <repository-url>
+   git clone https://github.com/alperenzkurt/django-crud.git
    cd django-crud
    ```
 
@@ -64,24 +64,3 @@ docker-compose exec web python manage.py test apps.parts
 docker-compose exec web python manage.py test apps.assembly
 docker-compose exec web python manage.py test apps.planes
 ```
-
-### Özel Test Çalıştırıcısını Kullanma
-
-Kolaylık için özel bir test çalıştırıcısı sağlanmıştır:
-```
-docker-compose exec web python tests.py
-```
-
-### Test Kapsamı
-
-Test kapsam raporu oluşturmak için:
-```
-docker-compose exec web coverage run --source='apps' manage.py test apps
-docker-compose exec web coverage report
-```
-
-HTML raporları için:
-```
-docker-compose exec web coverage html
-```
-HTML raporu `htmlcov` dizininde mevcut olacaktır.
